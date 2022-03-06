@@ -14,7 +14,6 @@ from dwave.cloud.client import Client
 import dwave.inspector
 
 num_cities = 9
-jump = 2
 
 k = 8
 node_bonus = 10 * k
@@ -23,6 +22,7 @@ hard_constraint_ver_penalty = 100 * k
 chain_strength=150 * k
 num_reads=10000
 
+jump = 2
 
 city_list = np.array([[cos(2*pi*i*jump/num_cities), sin(2*pi*i*jump/num_cities)] for i in range(num_cities)])
 
@@ -90,7 +90,6 @@ Q.update({(node, node): - node_bonus for node in range(n, len(G.nodes)-n)})
 
 Q.update({(node, node): distance(node % n + 1, 0) - node_bonus for node in range(len(G.nodes)-n, len(G.nodes))})
 
-
 Q.update({(i, j): distance(i % n + 1, j % n + 1) for i, j in G.edges if i // n != j // n and i % n != j % n})
 
 Q.update({(i, j): hard_constraint_hor_penalty for i, j in G.edges if i // n == j // n})
@@ -125,7 +124,6 @@ print(f"{dwave_solution=}")
 print(f"Solution energy={dwave_samples.first.energy}")
 print(f"Chain break fraction={dwave_samples.first.chain_break_fraction}")
 print(f"Distance={dwave_solution_distance}")
-
 
 print(f"{dwave_samples.info=}")
 show_solution(dwave_solution, title="Solution of DwaveSolver")
