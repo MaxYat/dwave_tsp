@@ -4,7 +4,7 @@ from itertools import combinations, permutations
 from math import sqrt, pi, sin, cos
 
 import networkx as nx
-import dwave_networkx as dnx
+# import dwave_networkx as dnx
 from dwave.system.samplers import DWaveSampler
 from dwave.system.composites import EmbeddingComposite
 from dimod.reference.samplers import ExactSolver
@@ -13,8 +13,17 @@ from dwave.cloud.client import Client
 # Import the problem inspector to begin data capture
 import dwave.inspector
 
-num_cities = 11
+num_cities = 9
 jump = 2
+
+k = 8
+node_bonus = 10 * k
+hard_constraint_hor_penalty = 100 * k
+hard_constraint_ver_penalty = 100 * k
+chain_strength=150 * k
+num_reads=10000
+
+
 city_list = np.array([[cos(2*pi*i*jump/num_cities), sin(2*pi*i*jump/num_cities)] for i in range(num_cities)])
 
 
@@ -57,7 +66,6 @@ initial_solution[-1] = 0
 show_solution(initial_solution, title="Initial solution")
 
 n = len(city_list)-1
-# nodes = np.zeros((n,n), dtype=np.float32)
 
 edges = []
 
@@ -76,10 +84,6 @@ for i in range(n):
 G = nx.Graph()
 G.add_edges_from(edges)
 
-node_bonus = 10
-hard_constraint_hor_penalty = 15
-hard_constraint_ver_penalty = 10
-
 Q = {(node, node): distance(0, node + 1) - node_bonus for node in range(n)}
 
 Q.update({(node, node): - node_bonus for node in range(n, len(G.nodes)-n)})
@@ -91,15 +95,6 @@ Q.update({(i, j): distance(i % n + 1, j % n + 1) for i, j in G.edges if i // n !
 
 Q.update({(i, j): hard_constraint_hor_penalty for i, j in G.edges if i // n == j // n})
 Q.update({(i, j): hard_constraint_ver_penalty for i, j in G.edges if i % n == j % n})
-
-# sampler = ExactSolver()
-# S = dnx.maximum_independent_set(G, sampler=sampler)
-
-# sampler = EmbeddingComposite(DWaveSampler())
-# S = dnx.maximum_independent_set(G, sampler=sampler, num_reads=10, label='TSP')
-
-# print('Maximum independent set size found is', len(S))
-# print(S)
 
 if num_cities <= 5:
     exact_sampler = ExactSolver()
@@ -118,18 +113,21 @@ client = Client(token=token)
 print(client.get_solvers())
 
 dwave_sampler = EmbeddingComposite(DWaveSampler(token=token))
-dwave_samples = dwave_sampler.sample_qubo(Q, num_reads=10000, chain_strength=100, label=f'Study TSP ({num_cities})')
-dwave_sample = dwave_samples.lowest()
-dwave_nodes = dwave_sample.record[0][0]
+dwave_samples = dwave_sampler.sample_qubo(Q, num_reads=num_reads, chain_strength=chain_strength, label=f'Study TSP ({num_cities})')
+# dwave_nodes = dwave_samples.lowest().record[0][0]
+dwave_nodes = np.array(list(dwave_samples.first.sample.values()))
 
 dwave_solution, dwave_status = nodes_to_solution(dwave_nodes)
+dwave_solution_distance = np.sum([distance(dwave_solution[i], dwave_solution[i+1]) for i in range(num_cities)])
+
 print(f"{dwave_status=}")
 print(f"{dwave_solution=}")
 print(f"Solution energy={dwave_samples.first.energy}")
 print(f"Chain break fraction={dwave_samples.first.chain_break_fraction}")
+print(f"Distance={dwave_solution_distance}")
+
 
 print(f"{dwave_samples.info=}")
 show_solution(dwave_solution, title="Solution of DwaveSolver")
 
 dwave.inspector.show(dwave_samples)
-
